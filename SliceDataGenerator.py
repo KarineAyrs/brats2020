@@ -10,14 +10,7 @@ class DataGenerator:
         self.__batch_size = batch_size
         self.__pref_paths = pref_paths
         self.__brts_20_tr_fldrs = sorted(os.listdir(pref_paths[0]))[:-2]
-        self.__brts_16_tr_fldrs = sorted(os.listdir(pref_paths[1]))
-        self.__brts_16_tr_lab_fldrs = sorted(os.listdir(pref_paths[2]))
-        self.__brts_20_val_fldrs = sorted(os.listdir(pref_paths[3]))[:-2]
-        self.__brts_16_val_fldrs = sorted(os.listdir(pref_paths[4]))
-
         self.__train_X_20_paths, self.__train_Y_20_paths, self.__test_X_20_paths, self.__test_Y_20_paths = self.__create_paths_20()
-        self.__train_X_16_paths, self.__train_Y_16_paths, self.__test_X_16_paths, self.__test_Y_16_paths = self.__create_paths_16()
-
         self.__H = 240 if H is None else H
         self.__W = 240 if W is None else W
         self.__h_crop = 0 if h_crop is None else h_crop
@@ -37,16 +30,6 @@ class DataGenerator:
         n1 = int(len(Y_paths) * 0.8)
         return X_paths[:n], Y_paths[:n1], X_paths[n:], Y_paths[n1:]
 
-    def __create_paths_16(self):
-        X_paths = []
-        Y_paths = []
-        for file in self.__brts_16_tr_fldrs:
-            X_paths.append(self.__pref_paths[1] + self.__delimeter + file)
-        for file in self.__brts_16_tr_lab_fldrs:
-            Y_paths.append(self.__pref_paths[2] + self.__delimeter + file)
-        n = int(len(X_paths) * 0.8)
-        return X_paths[:n], Y_paths[:n], X_paths[n:], Y_paths[n:]
-
     def train_X_slice_data_generator(self):
         nb_tr = len(self.__train_X_20_paths)
         while True:
@@ -62,29 +45,29 @@ class DataGenerator:
                 im3 = np.array(nib.load(self.__train_X_20_paths[start + 2]).get_fdata())
                 im4 = np.array(nib.load(self.__train_X_20_paths[start + 3]).get_fdata())
 
-                n = im1.shape[2] // 2
+                i = im1.shape[2]//2
+                # for i in range(im1.shape[2]):
+                x_batch.clear()
+                y_batch.clear()
 
-                for i in range(n - 1, n + 2, 1):
-                    x_batch.clear()
-                    y_batch.clear()
+                x_batch.append(
+                    cv2.resize(im1[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
+                               (self.__H, self.__W), interpolation=cv2.INTER_AREA))
+                x_batch.append(
+                    cv2.resize(im2[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
+                               (self.__H, self.__W), interpolation=cv2.INTER_AREA))
+                x_batch.append(
+                    cv2.resize(im3[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
+                               (self.__H, self.__W), interpolation=cv2.INTER_AREA))
+                x_batch.append(
+                    cv2.resize(im4[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
+                               (self.__H, self.__W), interpolation=cv2.INTER_AREA))
 
-                    x_batch.append(
-                        cv2.resize(im1[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
-                                   (self.__H, self.__W), interpolation=cv2.INTER_AREA))
-                    x_batch.append(
-                        cv2.resize(im2[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
-                                   (self.__H, self.__W), interpolation=cv2.INTER_AREA))
-                    x_batch.append(
-                        cv2.resize(im3[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
-                                   (self.__H, self.__W), interpolation=cv2.INTER_AREA))
-                    x_batch.append(
-                        cv2.resize(im4[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
-                                   (self.__H, self.__W), interpolation=cv2.INTER_AREA))
-                    y_batch.append(cv2.resize(mask[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
-                                              (self.__H, self.__W), interpolation=cv2.INTER_AREA))
-
-                    yield np.array(x_batch).reshape((1, self.__H, self.__W, 4)), np.array(y_batch).reshape(
-                        (1, self.__H, self.__W, 1))
+                m = mask[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i]
+                y_batch.append(cv2.resize(np.where((m != 0) & (m != 1), 1, m), (self.__H, self.__W),
+                                          interpolation=cv2.INTER_AREA))
+                yield np.array(x_batch).reshape((1, self.__H, self.__W, 4)), np.array(y_batch).reshape(
+                    (1, self.__H, self.__W, 1))
 
     def test_X_slice_data_generator(self):
         nb_tr = len(self.__test_X_20_paths)
@@ -100,27 +83,25 @@ class DataGenerator:
                 im3 = np.array(nib.load(self.__test_X_20_paths[start + 2]).get_fdata())
                 im4 = np.array(nib.load(self.__test_X_20_paths[start + 3]).get_fdata())
 
-                n = im1.shape[2] // 2
+                i=im1.shape[2]//2
+                # for i in range(im1.shape[2]):
+                x_batch.clear()
+                y_batch.clear()
 
-                for i in range(n - 1, n + 2, 1):
-                    x_batch.clear()
-                    y_batch.clear()
-
-                    x_batch.append(
-                        cv2.resize(im1[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
-                                   (self.__H, self.__W), interpolation=cv2.INTER_AREA))
-                    x_batch.append(
-                        cv2.resize(im2[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
-                                   (self.__H, self.__W), interpolation=cv2.INTER_AREA))
-                    x_batch.append(
-                        cv2.resize(im3[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
-                                   (self.__H, self.__W), interpolation=cv2.INTER_AREA))
-                    x_batch.append(
-                        cv2.resize(im4[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
-                                   (self.__H, self.__W), interpolation=cv2.INTER_AREA))
-                    y_batch.append(cv2.resize(mask[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
-                                              (self.__H, self.__W), interpolation=cv2.INTER_AREA))
-
-                    yield np.array(x_batch).reshape((1, self.__H, self.__W, 4)), np.array(y_batch).reshape(
-                        (1, self.__H, self.__W, 1))
-    
+                x_batch.append(
+                    cv2.resize(im1[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
+                               (self.__H, self.__W), interpolation=cv2.INTER_AREA))
+                x_batch.append(
+                    cv2.resize(im2[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
+                               (self.__H, self.__W), interpolation=cv2.INTER_AREA))
+                x_batch.append(
+                    cv2.resize(im3[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
+                               (self.__H, self.__W), interpolation=cv2.INTER_AREA))
+                x_batch.append(
+                    cv2.resize(im4[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i],
+                               (self.__H, self.__W), interpolation=cv2.INTER_AREA))
+                m = mask[self.__h_crop:self.__w_crop, self.__h_crop:self.__w_crop, i]
+                y_batch.append(cv2.resize(np.where((m != 0) & (m != 1), 1, m), (self.__H, self.__W),
+                                          interpolation=cv2.INTER_AREA))
+                yield np.array(x_batch).reshape((1, self.__H, self.__W, 4)), np.array(y_batch).reshape(
+                    (1, self.__H, self.__W, 1))
